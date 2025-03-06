@@ -4,41 +4,19 @@ An experiment in isolating an iFrame from the network using service-workers.
 
 Based on [this thread](https://ocapjs.org/t/containment-via-service-worker/94/9?u=danfinlay).
 
-Unlike `ses-iframe`, I'm aspiring to the simpler goal of just shutting down network access for the whole frame. Not trying to emulate or attenuate network access, just shut it down. If I can get a silent iframe, I can build up functionality from there.
+Unlike `ses-iframe`, I'm aspiring to the simpler goal of just shutting down network access for the whole frame. Not trying to emulate or attenuate network access, just shut it down.
 
-If I get it working, I hope to package up the working parts into a reusable module.
+## What is the goal?
 
-## Current API (Unstable!)
+The goal is to create an iframe that is isolated from the network, so that it can be used to run untrusted client side code without the risk of it exfiltrating data or making unverified network requests.
 
-This module is under casual experimentation, and currently does not work as intended, and should not be relied on for anything.
+## How does it work?
 
-That said, here is the current usage, as seen in `example.js`:
-
-```javascript
-import iframeIsolator from 'iframe-isolator';
-
-// Imagine this HTML is untrusted code:
-const malicious_html = `
-  HELLO!
-<style>
-body {
-   background: url("http://www.fillmurray.com/200/300")
-}
-</style>
-`;
-
-window.addEventListener('load', ready)
-
-async function ready () {
-  const container = document.getElementById('container')
-
-  // First argument is the malicious HTML to inject, the second argument is an element to inject within:
-  await iframeIsolator(malicious_html, container)
-}
-```
-Later I'd love to pass in a `props` object also, which could ideally include functions for helping the child load and subscribe to updates.
-
-The `props` object could simply be a read-only JS object that is appended to the child's global scope, but I think it would be even cooler to support passing an asynchronous API object, to allow easy bidirectional communication, maybe using [captp-stream](https://github.com/danfinlay/captp-stream) over [port-stream](https://www.npmjs.com/package/extension-port-stream).
+1. The parent page embeds an iframe with `sandbox="allow-same-origin"`.
+  * NOTE: `allow-same-origin` can lead to unintended consequences if the iframe is not hosted from a separate origin from the parent. Ensure that the iframe is hosted from a different domain, otherwise it will be able to break out of the sandbox.
+2. The iframe registers a service worker that intercepts all network requests.
+  * The service worker can contain rules to allow or deny requests based on the origin, method, and other request properties.
+3. The parent page can inject untrusted code into the iframe, which will be executed completely offline.
 
 ## Current Status
 
@@ -46,8 +24,10 @@ The `props` object could simply be a read-only JS object that is appended to the
 - [x] Parent injects serviceworker registration into child before the untrusted render code.
 - [x] Parent waits for serviceworker registration in child to complete before injecting untrusted render code.
 - [x] Once serviceworker is registered, child requests to non-same-origins are rejected.
-- [ ] Get working on first load
+- [x] Get working on first load
 - [x] Get working on second load on Firefox
-- [ ] Get working on Chrome
-- [ ] Explore getting injection working with [srcdoc](https://developer.mozilla.org/en-US/docs/Web/API/HTMLIFrameElement/srcdoc) api.
+- [x] Get working on Chrome
+- [x] Explore getting injection working with [postMessage](https://developer.mozilla.org/en-US/docs/Web/API/HTMLIFrameElement/srcdoc) api.
+- [ ] Rewrite in React as a composable element
+- [ ] Find a way to prevent the iframe from being able to unregister the service worker.
 
